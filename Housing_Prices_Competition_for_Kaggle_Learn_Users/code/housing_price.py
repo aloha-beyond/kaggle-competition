@@ -64,11 +64,15 @@ class My_Model(nn.Module):
     def __init__(self, input_dim):
         super(My_Model, self).__init__()
         self.layerS = nn.Sequential(
-            nn.Linear(input_dim, 16),
+            nn.Linear(input_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
             nn.ReLU(),
             nn.Linear(16, 8),
             nn.ReLU(),
-            nn.Linear(8, 1)
+            nn.Linear(8, 4),
+            nn.ReLU(),
+            nn.Linear(4, 1)
         )
     def forward(self, x):
         x = self.layerS(x)
@@ -81,9 +85,9 @@ config = {
     'select_all': True,
     'valid_ratio': 0.2,
     'n_epochs': 3000,
-    'batch_size': 256,
-    'learning_rate': 1e-5,
-    'early_stop': 400,
+    'batch_size': 1000,
+    'learning_rate': 1e-1,
+    'early_stop': 3000,
     'save_path': './models/model.ckpt'
 }
 
@@ -171,23 +175,40 @@ if __name__ == '__main__':
     test_data = pd.read_csv('../data/test.csv')
     print(train_data.shape, test_data.shape)
 
+    train_labels = train_data.iloc[:, -1]
+    row_name = train_data.columns[-1]
+    train_data.drop(row_name, axis=1, inplace=True)
     all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
     numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
     all_features[numeric_features] = all_features[numeric_features].apply(lambda x: (x - x.mean()) / (x.std()))
     all_features[numeric_features] = all_features[numeric_features].fillna(0)
-    all_features = pd.get_dummies(all_features, dummy_na=True)
-    print(all_features.shape)
-    print(type(all_features))
+    all_features = pd.get_dummies(all_features, dummy_na=True, dtype=np.int32)
     n_train = train_data.shape[0]
-    train_features = torch.tensor(all_features[:n_train].to_numpy(dtype=np.float32))
+    all_features2 = all_features[:n_train]
+    all_features2[row_name] = train_labels
+    train_features = torch.tensor(all_features2.to_numpy(dtype=np.float32))
     test_features = torch.tensor(all_features[n_train:].to_numpy(dtype=np.float32))
-    print(train_features.shape, test_features.shape)
-    print("ppp")
+
+    # train_labels = train_data.iloc[:, -1:]
+    # row_name = train_data.columns[-1]
+    # all_features = train_data.iloc[:, 1:-1]
+    # numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
+    # all_features[numeric_features] = all_features[numeric_features].fillna(0)
+    # all_features = pd.get_dummies(all_features, dummy_na=True, dtype=np.int32)
+    # all_features[row_name] = train_labels
+    # n_train = train_data.shape[0]
+    # train_features = torch.tensor(all_features[:n_train].to_numpy(dtype=np.float32))
+    #
+    # all_features = test_data.iloc[:, 1:]
+    # numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
+    # all_features[numeric_features] = all_features[numeric_features].fillna(0)
+    # all_features = pd.get_dummies(all_features, dummy_na=True, dtype=np.int32)
+    # n_train = test_data.shape[0]
+    # test_features = torch.tensor(all_features[:n_train].to_numpy(dtype=np.float32))
+
     train_data = train_features
     test_data = test_features
     train_data, valid_data = train_valid_split(train_data, config['valid_ratio'], config['seed'])
-    print("kk")
-    # print(train_data.shape, valid_data.shape)
     print(
         f"""train_data size : {train_data.shape}, valid_data size : {valid_data.shape}, test_data size : {test_data.shape})""")
     x_train, x_valid, x_test, y_train, y_valid = select_feat(train_data, valid_data, test_data, config['select_all'])
